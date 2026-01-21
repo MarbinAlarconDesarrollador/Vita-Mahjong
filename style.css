@@ -54,16 +54,19 @@ header {
 }
 
 #board {
-    position: relative;   
+    position: relative;
     display: flex;
     justify-content: center;
     align-items: center;
     width: 100%;
-    max-width: 600px; /* Tamaño máximo para escritorio */
-    height: 70vh;    /* Altura basada en la pantalla del celular */
+    max-width: 600px;
+    /* Tamaño máximo para escritorio */
+    height: 70vh;
+    /* Altura basada en la pantalla del celular */
     margin: 0 auto;
     perspective: 1000px;
-    touch-action: none; /* Evita que el celular haga scroll mientras juegas */
+    touch-action: none;
+    /* Evita que el celular haga scroll mientras juegas */
 }
 
 .tile {
@@ -204,16 +207,20 @@ header {
     white-space: nowrap;
     z-index: 1000;
 }
+
 @media (max-width: 500px) {
     header {
         padding: 5px;
     }
+
     .btns button {
         padding: 8px 12px;
         font-size: 18px;
     }
+
     #board {
-        transform: scale(0.9); /* Encoge todo el tablero un 10% si es necesario */
+        transform: scale(0.9);
+        /* Encoge todo el tablero un 10% si es necesario */
         transform-origin: center top;
     }
 }
