@@ -14,13 +14,13 @@ function playSfx(f, t = 'sine', d = 0.1) {
     try {
         const o = audioCtx.createOscillator(); // Crea el generador de sonido
         const g = audioCtx.createGain();       // Crea el control de volumen
-        o.type = t; 
+        o.type = t;
         o.frequency.value = f;
         // Baja el volumen suavemente a 0 (efecto fade-out)
         g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + d);
-        o.connect(g); 
+        o.connect(g);
         g.connect(audioCtx.destination); // Conecta a los parlantes
-        o.start(); 
+        o.start();
         o.stop(audioCtx.currentTime + d);
     } catch (e) { console.error("Error de audio", e); }
 }
@@ -90,15 +90,15 @@ function createExplosion(x, y, color = '#f1c40f') {
  */
 function checkIsFree(tile) {
     if (!tile.active) return false; // Si ya fue eliminada, no cuenta
-    
+
     // Busca si hay alguna ficha activa justo encima (mismas coordenadas x,y pero z superior)
     const hasAbove = tiles.some(t => t.active && t.z === tile.z + 1 && t.x === tile.x && t.y === tile.y);
     if (hasAbove) return false;
-    
+
     // Busca bloqueos laterales
     const hasLeft = tiles.some(t => t.active && t.z === tile.z && t.y === tile.y && t.x === tile.x - 1);
     const hasRight = tiles.some(t => t.active && t.z === tile.z && t.y === tile.y && t.x === tile.x + 1);
-    
+
     // Está libre si NO tiene izquierda O NO tiene derecha (o ambas libres)
     return !hasLeft || !hasRight;
 }
@@ -125,47 +125,47 @@ function updateStates() {
  */
 function handleSelect(tile) {
     if (!tile.isFree) { playSfx(100, 'sawtooth'); return; } // Sonido de error
-    
+
     if (!selected) {
         // Primera selección
-        selected = tile; 
-        tile.el.classList.add("selected"); 
+        selected = tile;
+        tile.el.classList.add("selected");
         playSfx(440);
     } else if (selected === tile) {
         // Clic en la misma ficha (cancelar)
-        tile.el.classList.remove("selected"); 
+        tile.el.classList.remove("selected");
         selected = null;
     } else if (selected.symbol === tile.symbol) {
         // MATCH EXITOSO
         const r1 = selected.el.getBoundingClientRect();
         const colorMatch = window.getComputedStyle(selected.el).color;
-        
+
         createExplosion(r1.left + 25, r1.top + 30, colorMatch); // Efecto visual
         playSfx(800, 'triangle', 0.2); // Sonido de éxito
-        
+
         // Actualizar datos
-        score += 100; 
+        score += 100;
         timeLeft = Math.min(100, timeLeft + 8); // Recuperar tiempo
-        
+
         // Desactivar fichas (lógica y visualmente)
         selected.active = tile.active = false;
         selected.el.style.display = tile.el.style.display = "none";
         selected = null;
-        
+
         document.getElementById("pts-txt").textContent = score;
         updateStates(); // Recalcular bloqueos
-        
+
         // Verificar si ganó el nivel (todas inactivas)
-        if (tiles.every(t => !t.active)) { 
-            level++; 
-            msg("¡NIVEL SUPERADO!"); 
-            setTimeout(startLevel, 1000); 
+        if (tiles.every(t => !t.active)) {
+            level++;
+            msg("¡NIVEL SUPERADO!");
+            setTimeout(startLevel, 1000);
         }
     } else {
         // Símbolos diferentes: Cambiar selección a la nueva ficha
         selected.el.classList.remove("selected");
-        selected = tile; 
-        tile.el.classList.add("selected"); 
+        selected = tile;
+        tile.el.classList.add("selected");
         playSfx(440);
     }
 }
@@ -177,19 +177,19 @@ function handleSelect(tile) {
 function shuffleBoard(manual) {
     if (manual && !confirm("Mezclar cuesta 50 puntos. ¿Continuar?")) return;
     if (manual) score = Math.max(0, score - 50);
-    
+
     const active = tiles.filter(t => t.active);
     // Extraer símbolos y barajar
     const syms = active.map(t => t.symbol).sort(() => Math.random() - 0.5);
-    
+
     // Reasignar símbolos barajados a las posiciones existentes
     active.forEach((t, i) => {
-        t.symbol = syms[i]; 
+        t.symbol = syms[i];
         t.el.textContent = syms[i];
-        assignColorClass(t.el, syms[i]); 
+        assignColorClass(t.el, syms[i]);
         t.el.classList.remove("selected");
     });
-    
+
     document.getElementById("pts-txt").textContent = score;
     updateStates();
 }
@@ -266,7 +266,7 @@ function generateLevelDesign(lvl) {
  * 4. Crea los elementos HTML <div>.
  * 5. Asigna parejas de símbolos.
  */
-function startLevel() {
+/* function startLevel() {
     const board = document.getElementById("board");
     board.innerHTML = "";
     tiles = [];
@@ -311,26 +311,75 @@ function startLevel() {
         el.onclick = () => handleSelect(tileObj);
         board.appendChild(el);
         tiles.push(tileObj);
-    });
+    }); */
 
-    // Seguridad: El total de fichas debe ser par para tener parejas
-    if (tiles.length % 2 !== 0) {
-        const last = tiles.pop();
-        last.el.remove();
+function startLevel() {
+    const board = document.getElementById("board");
+    board.innerHTML = "";
+    tiles = [];
+    selected = null;
+    document.getElementById("lvl-txt").textContent = level;
+
+    // 1. Obtener diseño
+    let design = generateLevelDesign(level);
+
+    // --- CORRECCIÓN: Asegurar paridad ANTES de crear elementos ---
+    if (design.length % 2 !== 0) {
+        design.pop(); // Eliminamos una coordenada del array de datos
     }
 
-    // 5. Asignar símbolos (Parejas)
+    // 2. Definir espacio entre fichas (responsive)
+    const isMobile = window.innerWidth < 500;
+    const gapX = isMobile ? 42 : 54;
+    const gapY = isMobile ? 54 : 70;
+
+    // 3. Matemáticas para centrar
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+    design.forEach(d => {
+        minX = Math.min(minX, d.x); maxX = Math.max(maxX, d.x);
+        minY = Math.min(minY, d.y); maxY = Math.max(maxY, d.y);
+    });
+
+    const centerX = (minX + maxX) / 2;
+    const centerY = (minY + maxY) / 2;
+
+    // 4. Crear elementos visuales (Ahora design siempre es PAR)
+    design.forEach(pos => {
+        const el = document.createElement("div");
+        el.className = "tile";
+
+        const tileObj = {
+            el,
+            symbol: '',
+            x: pos.x, y: pos.y, z: pos.z,
+            active: true, isFree: false
+        };
+
+        el.style.left = `calc(50% + ${(pos.x - centerX) * gapX}px)`;
+        el.style.top = `calc(50% + ${(pos.y - centerY) * gapY}px)`;
+        el.style.zIndex = 10 + pos.z;
+
+        el.onclick = () => handleSelect(tileObj);
+        board.appendChild(el);
+        tiles.push(tileObj);
+    });
+
+    // 5. Asignar símbolos (Parejas exactas)
     const syms = [];
-    // A mayor nivel, usamos más tipos de símbolos (más difícil hacer match)
     const difficultySlice = Math.min(SYMBOLS.length, 10 + level * 2);
     const levelSymbols = SYMBOLS.slice(0, difficultySlice);
 
-    // Crear duplicados para asegurar parejas
+    // Usamos el largo de tiles que YA es par
     for (let i = 0; i < tiles.length / 2; i++) {
         const s = levelSymbols[i % levelSymbols.length];
-        syms.push(s, s);
+        syms.push(s, s); // Esto garantiza que siempre hay 2 de cada uno
     }
-    syms.sort(() => Math.random() - 0.5); // Barajar
+
+    // Barajado Fisher-Yates (más confiable que sort aleatorio)
+    for (let i = syms.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [syms[i], syms[j]] = [syms[j], syms[i]];
+    }
 
     tiles.forEach((t, i) => {
         t.symbol = syms[i];
@@ -338,8 +387,37 @@ function startLevel() {
         assignColorClass(t.el, syms[i]);
     });
 
-    updateStates(); // Calcular desbloqueados iniciales
-    resetTimer();   // Iniciar reloj
+    updateStates();
+    resetTimer();
+}
+
+// Seguridad: El total de fichas debe ser par para tener parejas
+if (tiles.length % 2 !== 0) {
+    const last = tiles.pop();
+    last.el.remove();
+}
+
+// 5. Asignar símbolos (Parejas)
+const syms = [];
+// A mayor nivel, usamos más tipos de símbolos (más difícil hacer match)
+const difficultySlice = Math.min(SYMBOLS.length, 10 + level * 2);
+const levelSymbols = SYMBOLS.slice(0, difficultySlice);
+
+// Crear duplicados para asegurar parejas
+for (let i = 0; i < tiles.length / 2; i++) {
+    const s = levelSymbols[i % levelSymbols.length];
+    syms.push(s, s);
+}
+syms.sort(() => Math.random() - 0.5); // Barajar
+
+tiles.forEach((t, i) => {
+    t.symbol = syms[i];
+    t.el.textContent = syms[i];
+    assignColorClass(t.el, syms[i]);
+});
+
+updateStates(); // Calcular desbloqueados iniciales
+resetTimer();   // Iniciar reloj
 }
 
 /* ==========================================
@@ -379,14 +457,14 @@ function resetTimer() {
 
         // Cambio de color a rojo si queda poco tiempo (<20%)
         const bar = document.getElementById("timer-bar");
-        if (timeLeft < 20) bar.style.backgroundColor = "#e74c3c"; 
-        else bar.style.backgroundColor = "#2ecc71"; 
+        if (timeLeft < 20) bar.style.backgroundColor = "#e74c3c";
+        else bar.style.backgroundColor = "#2ecc71";
 
         // Fin del juego
         if (timeLeft <= 0) {
             clearInterval(timerInt);
             msg("¡TIEMPO AGOTADO!");
-            playSfx(100, 'sawtooth', 0.5); 
+            playSfx(100, 'sawtooth', 0.5);
             setTimeout(resetGame, 2000);
         }
     }, 100); // Se ejecuta cada 100ms
@@ -395,7 +473,7 @@ function resetTimer() {
 // Muestra mensajes flotantes (Toast)
 function msg(text) {
     const t = document.getElementById("toast");
-    t.innerHTML = `<h2>${text}</h2>`; 
+    t.innerHTML = `<h2>${text}</h2>`;
     t.style.display = "block";
     setTimeout(() => t.style.display = "none", 2000);
 }
@@ -419,7 +497,7 @@ let eventoInstalacion;
 
 // Escucha si el navegador permite instalar la app
 window.addEventListener('beforeinstallprompt', (e) => {
-    e.preventDefault(); 
+    e.preventDefault();
     eventoInstalacion = e;
     // Muestra el botón de instalar solo si es posible
     document.getElementById('btnInstalar').style.display = 'inline-block';
