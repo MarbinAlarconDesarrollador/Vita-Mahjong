@@ -313,19 +313,62 @@ function generateLevelDesign(lvl) {
         tiles.push(tileObj);
     }); */
 
+/* ==========================================
+   5. GENERACIÓN DE NIVELES (Algoritmo de Dificultad)
+   ========================================== */
+
+/**
+ * Define la estructura 3D del nivel.
+ */
+function generateLevelDesign(lvl) {
+    const layout = [];
+    const cols = Math.min(8, 4 + Math.floor(lvl / 3));
+    const rows = Math.min(10, 5 + Math.floor(lvl / 3));
+    const maxDepth = Math.min(6, 1 + Math.floor(lvl / 2));
+    const patternType = lvl % 4;
+
+    for (let y = 0; y < rows; y++) {
+        for (let x = 0; x < cols; x++) {
+            let height = 0;
+            if (patternType === 0) {
+                const distX = Math.abs(x - cols / 2 + 0.5);
+                const distY = Math.abs(y - rows / 2 + 0.5);
+                height = Math.max(0, maxDepth - Math.floor(Math.max(distX, distY)));
+            }
+            else if (patternType === 1) {
+                height = (x === 0 || x === cols - 1 || y === 0 || y === rows - 1) ? maxDepth : 1;
+            }
+            else if (patternType === 2) {
+                height = ((x + y) % 2 === 0) ? maxDepth : Math.floor(maxDepth / 2);
+            }
+            else {
+                height = Math.floor(Math.random() * maxDepth) + 1;
+            }
+
+            for (let z = 0; z < height; z++) {
+                if (Math.random() > 0.1) layout.push({ x, y, z });
+            }
+        }
+    }
+    return layout;
+}
+
+/**
+ * Función principal que construye el DOM del nivel.
+ */
 function startLevel() {
     const board = document.getElementById("board");
+    if (!board) return; // Seguridad
+    
     board.innerHTML = "";
     tiles = [];
     selected = null;
     document.getElementById("lvl-txt").textContent = level;
 
-    // 1. Obtener diseño
+    // 1. Obtener diseño y asegurar PARIDAD inmediata
     let design = generateLevelDesign(level);
-
-    // --- CORRECCIÓN: Asegurar paridad ANTES de crear elementos ---
     if (design.length % 2 !== 0) {
-        design.pop(); // Eliminamos una coordenada del array de datos
+        design.pop(); 
     }
 
     // 2. Definir espacio entre fichas (responsive)
@@ -343,7 +386,7 @@ function startLevel() {
     const centerX = (minX + maxX) / 2;
     const centerY = (minY + maxY) / 2;
 
-    // 4. Crear elementos visuales (Ahora design siempre es PAR)
+    // 4. Crear elementos visuales
     design.forEach(pos => {
         const el = document.createElement("div");
         el.className = "tile";
@@ -364,18 +407,17 @@ function startLevel() {
         tiles.push(tileObj);
     });
 
-    // 5. Asignar símbolos (Parejas exactas)
+    // 5. Asignar símbolos (Parejas exactas garantizadas)
     const syms = [];
     const difficultySlice = Math.min(SYMBOLS.length, 10 + level * 2);
     const levelSymbols = SYMBOLS.slice(0, difficultySlice);
 
-    // Usamos el largo de tiles que YA es par
     for (let i = 0; i < tiles.length / 2; i++) {
         const s = levelSymbols[i % levelSymbols.length];
-        syms.push(s, s); // Esto garantiza que siempre hay 2 de cada uno
+        syms.push(s, s);
     }
 
-    // Barajado Fisher-Yates (más confiable que sort aleatorio)
+    // Barajado Fisher-Yates
     for (let i = syms.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
         [syms[i], syms[j]] = [syms[j], syms[i]];
@@ -390,7 +432,6 @@ function startLevel() {
     updateStates();
     resetTimer();
 }
-
 // Seguridad: El total de fichas debe ser par para tener parejas
 if (tiles.length % 2 !== 0) {
     const last = tiles.pop();
